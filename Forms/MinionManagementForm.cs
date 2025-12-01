@@ -106,6 +106,8 @@ namespace VillainLairManager.Forms
             txtName = new TextBox();
             txtSkillLevel = new TextBox();
             txtSalary = new TextBox();
+            var button = new Button() => {OnClick(btnAdd_Click()); }
+            ;
 
             this.Controls.Add(txtName);
             this.Controls.Add(txtSkillLevel);
