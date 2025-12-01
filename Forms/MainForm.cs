@@ -13,118 +13,30 @@ namespace VillainLairManager.Forms
     /// </summary>
     public partial class MainForm : Form
     {
-        private Button btnMinions;
-        private Button btnSchemes;
-        private Button btnBases;
-        private Button btnEquipment;
-        private Label lblTitle;
-        private Panel pnlStats;
-        private Label lblMinionStats;
-        private Label lblSchemeStats;
-        private Label lblCostStats;
-        private Panel pnlAlerts;
-        private Label lblAlerts;
-
         public MainForm()
         {
             InitializeComponent();
             LoadStatistics(); // Business logic in form load (anti-pattern)
         }
 
-        private void InitializeComponent()
+        private void btnMinions_Click(object sender, EventArgs e)
         {
-            this.Text = "Super Villain Lair Management System";
-            this.Size = new Size(800, 600);
-            this.StartPosition = FormStartPosition.CenterScreen;
-
-            // Title
-            lblTitle = new Label
-            {
-                Text = "🦹 Super Villain Lair Management System 🦹",
-                Font = new Font("Arial", 20, FontStyle.Bold),
-                Location = new Point(150, 20),
-                Size = new Size(500, 40),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            this.Controls.Add(lblTitle);
-
-            // Navigation buttons
-            btnMinions = CreateNavigationButton("Manage Minions", 100, 100);
-            btnSchemes = CreateNavigationButton("Manage Evil Schemes", 450, 100);
-            btnBases = CreateNavigationButton("Manage Secret Bases", 100, 200);
-            btnEquipment = CreateNavigationButton("Equipment Inventory", 450, 200);
-
-            btnMinions.Click += (s, e) => OpenForm(new MinionManagementForm());
-            btnSchemes.Click += (s, e) => OpenForm(new SchemeManagementForm());
-            btnBases.Click += (s, e) => OpenForm(new BaseManagementForm());
-            btnEquipment.Click += (s, e) => OpenForm(new EquipmentInventoryForm());
-
-            // Statistics panel
-            pnlStats = new Panel
-            {
-                Location = new Point(50, 320),
-                Size = new Size(700, 150),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            lblMinionStats = new Label
-            {
-                Location = new Point(10, 10),
-                Size = new Size(680, 30),
-                Font = new Font("Arial", 10)
-            };
-            pnlStats.Controls.Add(lblMinionStats);
-
-            lblSchemeStats = new Label
-            {
-                Location = new Point(10, 50),
-                Size = new Size(680, 30),
-                Font = new Font("Arial", 10)
-            };
-            pnlStats.Controls.Add(lblSchemeStats);
-
-            lblCostStats = new Label
-            {
-                Location = new Point(10, 90),
-                Size = new Size(680, 30),
-                Font = new Font("Arial", 10)
-            };
-            pnlStats.Controls.Add(lblCostStats);
-
-            this.Controls.Add(pnlStats);
-
-            // Alerts panel
-            pnlAlerts = new Panel
-            {
-                Location = new Point(50, 480),
-                Size = new Size(700, 80),
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.LightYellow
-            };
-
-            lblAlerts = new Label
-            {
-                Location = new Point(10, 10),
-                Size = new Size(680, 60),
-                Font = new Font("Arial", 9),
-                ForeColor = Color.DarkRed
-            };
-            pnlAlerts.Controls.Add(lblAlerts);
-
-            this.Controls.Add(pnlAlerts);
+            OpenForm(new MinionManagementForm());
         }
 
-        private Button CreateNavigationButton(string text, int x, int y)
+        private void btnSchemes_Click(object sender, EventArgs e)
         {
-            var btn = new Button
-            {
-                Text = text,
-                Location = new Point(x, y),
-                Size = new Size(250, 80),
-                Font = new Font("Arial", 12, FontStyle.Bold)
-            };
-            this.Controls.Add(btn);
-            return btn;
+            OpenForm(new SchemeManagementForm());
+        }
+
+        private void btnBases_Click(object sender, EventArgs e)
+        {
+            OpenForm(new BaseManagementForm());
+        }
+
+        private void btnEquipment_Click(object sender, EventArgs e)
+        {
+            OpenForm(new EquipmentInventoryForm());
         }
 
         private void OpenForm(Form form)
