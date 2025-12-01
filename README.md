@@ -20,7 +20,7 @@ Your mission: Make it testable!
 
 ## System Requirements
 
-- **.NET 6.0 SDK** or later
+- **.NET 9.0 SDK** or later
 - **Windows** (for WinForms support)
 - **Visual Studio 2022** or **Visual Studio Code** with C# extension
 - **SQLite** (included via NuGet package)
@@ -89,7 +89,7 @@ On first launch, the application will:
 - `SecretBases` - Hidden lairs with capacity and security
 - `Equipment` - Tools, weapons, and doomsday devices
 
-See `specs/001-untangle-training-app/data-model.md` for detailed schema.
+See `data-model.md` for detailed schema.
 
 ## Anti-Patterns (Intentional!)
 
@@ -244,7 +244,7 @@ Follow similar patterns for other forms - keep business logic in event handlers!
 
 ## Business Rules to Test
 
-See `specs/001-untangle-training-app/contracts/` for detailed specifications:
+See `contracts/` for detailed specifications:
 
 **Minion Rules**:
 - Loyalty decay/growth based on salary
@@ -376,7 +376,7 @@ public MinionManagementForm(IMinionRepository minionRepo, ISchemeService schemeS
 - Delete and restart to reseed
 
 **Build errors**:
-- Ensure .NET 6.0 SDK is installed
+- Ensure .NET 9.0 SDK is installed
 - Run `dotnet restore`
 
 **Forms not displaying**:
