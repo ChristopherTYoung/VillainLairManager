@@ -431,55 +431,10 @@ namespace VillainLairManager.Forms
                 MultiSelect = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
-            dgvMinions.SelectionChanged += dgvMinions_SelectionChanged;
-
-            // Labels and TextBoxes
-            int labelX = 20;
-            int controlX = 150;
-            int startY = 440;
-            int rowHeight = 35;
-
-            lblName = new Label { Text = "Name:", Location = new System.Drawing.Point(labelX, startY), Size = new System.Drawing.Size(120, 20) };
-            txtName = new TextBox { Location = new System.Drawing.Point(controlX, startY), Size = new System.Drawing.Size(200, 20) };
-
-            lblSkillLevel = new Label { Text = "Skill Level (1-10):", Location = new System.Drawing.Point(labelX, startY + rowHeight), Size = new System.Drawing.Size(120, 20) };
-            txtSkillLevel = new TextBox { Location = new System.Drawing.Point(controlX, startY + rowHeight), Size = new System.Drawing.Size(200, 20) };
-
-            lblSpecialty = new Label { Text = "Specialty:", Location = new System.Drawing.Point(labelX, startY + rowHeight * 2), Size = new System.Drawing.Size(120, 20) };
-            cboSpecialty = new ComboBox { Location = new System.Drawing.Point(controlX, startY + rowHeight * 2), Size = new System.Drawing.Size(200, 20), DropDownStyle = ComboBoxStyle.DropDownList };
-
-            lblSalary = new Label { Text = "Salary Demand:", Location = new System.Drawing.Point(labelX, startY + rowHeight * 3), Size = new System.Drawing.Size(120, 20) };
-            txtSalary = new TextBox { Location = new System.Drawing.Point(controlX, startY + rowHeight * 3), Size = new System.Drawing.Size(200, 20) };
-
-            // Second column
-            int labelX2 = 400;
-            int controlX2 = 530;
-
-            lblLoyalty = new Label { Text = "Loyalty (0-100):", Location = new System.Drawing.Point(labelX2, startY), Size = new System.Drawing.Size(120, 20) };
-            txtLoyalty = new TextBox { Location = new System.Drawing.Point(controlX2, startY), Size = new System.Drawing.Size(200, 20), Text = "50" };
-
-            lblMood = new Label { Text = "Mood:", Location = new System.Drawing.Point(labelX2, startY + rowHeight), Size = new System.Drawing.Size(120, 20) };
-            cboMood = new ComboBox { Location = new System.Drawing.Point(controlX2, startY + rowHeight), Size = new System.Drawing.Size(200, 20), DropDownStyle = ComboBoxStyle.DropDownList };
-
-            lblBase = new Label { Text = "Assigned Base:", Location = new System.Drawing.Point(labelX2, startY + rowHeight * 2), Size = new System.Drawing.Size(120, 20) };
-            cboBase = new ComboBox { Location = new System.Drawing.Point(controlX2, startY + rowHeight * 2), Size = new System.Drawing.Size(200, 20), DropDownStyle = ComboBoxStyle.DropDownList };
-
-            lblScheme = new Label { Text = "Assigned Scheme:", Location = new System.Drawing.Point(labelX2, startY + rowHeight * 3), Size = new System.Drawing.Size(120, 20) };
-            cboScheme = new ComboBox { Location = new System.Drawing.Point(controlX2, startY + rowHeight * 3), Size = new System.Drawing.Size(200, 20), DropDownStyle = ComboBoxStyle.DropDownList };
-
-            // Buttons
-            int buttonY = startY + rowHeight * 4 + 10;
-            btnAdd = new Button { Text = "Add Minion", Location = new System.Drawing.Point(20, buttonY), Size = new System.Drawing.Size(120, 30) };
-            btnAdd.Click += btnAdd_Click;
-
-            btnUpdate = new Button { Text = "Update Minion", Location = new System.Drawing.Point(150, buttonY), Size = new System.Drawing.Size(120, 30) };
-            btnUpdate.Click += btnUpdate_Click;
-
-            btnDelete = new Button { Text = "Delete Minion", Location = new System.Drawing.Point(280, buttonY), Size = new System.Drawing.Size(120, 30) };
-            btnDelete.Click += btnDelete_Click;
-
-            btnRefresh = new Button { Text = "Refresh", Location = new System.Drawing.Point(410, buttonY), Size = new System.Drawing.Size(120, 30) };
-            btnRefresh.Click += btnRefresh_Click;
+            txtName = new TextBox();
+            txtSkillLevel = new TextBox();
+            txtSalary = new TextBox();
+            //var button = new Button() { OnClick(btnAdd_Click()); };
 
             // Add all controls
             this.Controls.Add(dgvMinions);
