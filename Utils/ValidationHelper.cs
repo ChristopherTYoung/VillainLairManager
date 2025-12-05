@@ -4,55 +4,64 @@ using System.Linq;
 namespace VillainLairManager.Utils
 {
     /// <summary>
-    /// Static validation helper with duplicated logic (anti-pattern)
+    /// Validation helper using configuration from ConfigManager
     /// </summary>
     public static class ValidationHelper
     {
-        // Specialty validation (duplicated in models and forms)
+        private static ConfigManager Config => ConfigManager.Instance;
+
+        // Specialty validation using configuration
         public static bool IsValidSpecialty(string specialty)
         {
-            // Hardcoded list instead of using ConfigManager (anti-pattern)
-            return specialty == "Hacking" || specialty == "Explosives" ||
-                   specialty == "Disguise" || specialty == "Combat" ||
-                   specialty == "Engineering" || specialty == "Piloting";
+            return Config.ValidSpecialties.Contains(specialty);
         }
 
-        // Category validation (duplicated in models and forms)
+        // Category validation using configuration
         public static bool IsValidCategory(string category)
         {
-            // Another hardcoded list (anti-pattern)
-            return category == "Weapon" || category == "Vehicle" ||
-                   category == "Gadget" || category == "Doomsday Device";
+            return Config.ValidCategories.Contains(category);
         }
 
-        // Skill level validation (duplicated in forms)
+        // Skill level validation using configuration
         public static bool IsValidSkillLevel(int skillLevel)
         {
-            return skillLevel >= 1 && skillLevel <= 10;
+            return skillLevel >= Config.SkillLevelRange.Min && skillLevel <= Config.SkillLevelRange.Max;
         }
 
-        // Loyalty validation (duplicated in forms)
+        // Loyalty validation using configuration
         public static bool IsValidLoyalty(int loyalty)
         {
-            return loyalty >= 0 && loyalty <= 100;
+            return loyalty >= Config.LoyaltyScoreRange.Min && loyalty <= Config.LoyaltyScoreRange.Max;
         }
 
-        // Condition validation (duplicated in forms)
+        // Condition validation using configuration
         public static bool IsValidCondition(int condition)
         {
-            return condition >= 0 && condition <= 100;
+            return condition >= Config.ConditionRange.Min && condition <= Config.ConditionRange.Max;
         }
 
-        // Diabolical rating validation
+        // Diabolical rating validation using configuration
         public static bool IsValidDiabolicalRating(int rating)
         {
-            return rating >= 1 && rating <= 10;
+            return rating >= Config.DiabolicalRatingRange.Min && rating <= Config.DiabolicalRatingRange.Max;
         }
 
-        // Security level validation
+        // Security level validation using configuration
         public static bool IsValidSecurityLevel(int level)
         {
-            return level >= 1 && level <= 10;
+            return level >= Config.SecurityLevelRange.Min && level <= Config.SecurityLevelRange.Max;
+        }
+        
+        // Mood status validation using configuration
+        public static bool IsValidMoodStatus(string mood)
+        {
+            return Config.ValidMoodStatuses.Contains(mood);
+        }
+
+        // Scheme status validation using configuration
+        public static bool IsValidSchemeStatus(string status)
+        {
+            return Config.ValidSchemeStatuses.Contains(status);
         }
     }
 }

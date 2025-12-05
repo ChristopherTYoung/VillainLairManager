@@ -50,10 +50,11 @@ namespace VillainLairManager.Models
             var assignedEquipment = DatabaseHelper.GetAllEquipment();
             int workingEquipmentCount = 0;
 
+            var config = ConfigManager.Instance;
             foreach (var equipment in assignedEquipment)
             {
                 if (equipment.AssignedToSchemeId == this.SchemeId &&
-                    equipment.Condition >= ConfigManager.MinEquipmentCondition)
+                    equipment.Condition >= config.MinEquipmentCondition)
                 {
                     workingEquipmentCount++;
                 }

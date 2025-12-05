@@ -1,6 +1,7 @@
 using System;
 using System.Windows.Forms;
 using VillainLairManager.Forms;
+using VillainLairManager.Utils;
 
 namespace VillainLairManager
 {
@@ -15,6 +16,9 @@ namespace VillainLairManager
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            // Initialize configuration first
+            var config = ConfigManager.Instance;
 
             // Initialize database - no error handling (anti-pattern)
             DatabaseHelper.Initialize();

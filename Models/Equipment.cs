@@ -22,14 +22,15 @@ namespace VillainLairManager.Models
         // Business logic: condition degradation
         public void DegradeCondition()
         {
+            var config = ConfigManager.Instance;
             if (AssignedToSchemeId.HasValue)
             {
                 // Check if scheme is active
                 var scheme = DatabaseHelper.GetSchemeById(AssignedToSchemeId.Value);
-                if (scheme != null && scheme.Status == ConfigManager.StatusActive)
+                if (scheme != null && scheme.Status == config.StatusActive)
                 {
                     int monthsSinceMaintenance = 1; // Simplified - should calculate from LastMaintenanceDate
-                    int degradation = monthsSinceMaintenance * ConfigManager.ConditionDegradationRate;
+                    int degradation = monthsSinceMaintenance * config.ConditionDegradationRate;
                     Condition -= degradation;
 
                     if (Condition < 0) Condition = 0;
@@ -42,17 +43,18 @@ namespace VillainLairManager.Models
         // Perform maintenance
         public decimal PerformMaintenance()
         {
+            var config = ConfigManager.Instance;
             decimal cost;
             if (Category == "Doomsday Device")
             {
-                cost = PurchasePrice * ConfigManager.DoomsdayMaintenanceCostPercentage;
+                cost = PurchasePrice * config.DoomsdayMaintenanceCostPercentage;
             }
             else
             {
-                cost = PurchasePrice * ConfigManager.MaintenanceCostPercentage;
+                cost = PurchasePrice * config.MaintenanceCostPercentage;
             }
 
-            Condition = 100;
+            Condition = config.DefaultCondition;
             LastMaintenanceDate = DateTime.Now;
 
             DatabaseHelper.UpdateEquipment(this);
@@ -63,12 +65,12 @@ namespace VillainLairManager.Models
         // Check if operational
         public bool IsOperational()
         {
-            return Condition >= ConfigManager.MinEquipmentCondition;
+            return Condition >= ConfigManager.Instance.MinEquipmentCondition;
         }
 
         public bool IsBroken()
         {
-            return Condition < ConfigManager.BrokenEquipmentCondition;
+            return Condition < ConfigManager.Instance.BrokenEquipmentCondition;
         }
 
         // ToString for display

@@ -17,6 +17,7 @@ namespace VillainLairManager.Forms
         private ComboBox cboSpecialty, cboBase, cboScheme, cboMood;
         private Button btnAdd, btnUpdate, btnDelete, btnRefresh;
         private Label lblName, lblSkillLevel, lblSpecialty, lblSalary, lblLoyalty, lblMood, lblBase, lblScheme;
+        private ConfigManager _config = ConfigManager.Instance;
 
         public MinionManagementForm()
         {
@@ -34,27 +35,26 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Hardcoded specialty validation (duplicates ValidationHelper)
+            // Validate specialty using ValidationHelper and configuration
             string specialty = cboSpecialty.SelectedItem?.ToString();
-            if (specialty != "Hacking" && specialty != "Explosives" && 
-                specialty != "Disguise" && specialty != "Combat" && 
-                specialty != "Engineering" && specialty != "Piloting")
+            if (string.IsNullOrEmpty(specialty) || !ValidationHelper.IsValidSpecialty(specialty))
             {
-                MessageBox.Show("Invalid specialty! Must be one of: Hacking, Explosives, Disguise, Combat, Engineering, Piloting", 
+                MessageBox.Show($"Invalid specialty! Must be one of: {string.Join(", ", _config.ValidSpecialties)}", 
                     "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Parse and validate skill level (duplicates ValidationHelper logic)
+            // Parse and validate skill level using ValidationHelper
             if (!int.TryParse(txtSkillLevel.Text, out int skillLevel))
             {
                 MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (skillLevel < 1 || skillLevel > 10)
+            if (!ValidationHelper.IsValidSkillLevel(skillLevel))
             {
-                MessageBox.Show("Skill level must be between 1 and 10!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Skill level must be between {_config.SkillLevelRange.Min} and {_config.SkillLevelRange.Max}!", 
+                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -71,28 +71,29 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Parse loyalty with hardcoded validation (anti-pattern)
+            // Parse loyalty using configuration default
             if (!int.TryParse(txtLoyalty.Text, out int loyalty))
             {
-                loyalty = 50; // Hardcoded default
+                loyalty = _config.DefaultLoyaltyScore;
             }
 
-            if (loyalty < 0 || loyalty > 100)
+            if (!ValidationHelper.IsValidLoyalty(loyalty))
             {
-                MessageBox.Show("Loyalty must be between 0 and 100!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Loyalty must be between {_config.LoyaltyScoreRange.Min} and {_config.LoyaltyScoreRange.Max}!", 
+                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Business logic for mood determination (duplicated from Minion model - anti-pattern)
-            string mood = cboMood.SelectedItem?.ToString() ?? "Grumpy";
+            // Business logic for mood determination using configuration thresholds
+            string mood = cboMood.SelectedItem?.ToString() ?? _config.DefaultMoodStatus;
             if (string.IsNullOrEmpty(mood))
             {
-                if (loyalty > 70)
-                    mood = "Happy";
-                else if (loyalty < 40)
-                    mood = "Plotting Betrayal";
+                if (loyalty > _config.HighLoyaltyThreshold)
+                    mood = _config.MoodHappy;
+                else if (loyalty < _config.LowLoyaltyThreshold)
+                    mood = _config.MoodBetrayal;
                 else
-                    mood = "Grumpy";
+                    mood = _config.MoodGrumpy;
             }
 
             // Get base and scheme assignments
@@ -154,20 +155,20 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Hardcoded specialty validation again (more duplication)
+            // Validate specialty using ValidationHelper
             string specialty = cboSpecialty.SelectedItem?.ToString();
-            if (specialty != "Hacking" && specialty != "Explosives" && 
-                specialty != "Disguise" && specialty != "Combat" && 
-                specialty != "Engineering" && specialty != "Piloting")
+            if (string.IsNullOrEmpty(specialty) || !ValidationHelper.IsValidSpecialty(specialty))
             {
-                MessageBox.Show("Invalid specialty!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Invalid specialty! Must be one of: {string.Join(", ", _config.ValidSpecialties)}", 
+                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Parse skill level with inline validation (duplicated)
-            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel) || skillLevel < 1 || skillLevel > 10)
+            // Parse skill level with ValidationHelper
+            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel) || !ValidationHelper.IsValidSkillLevel(skillLevel))
             {
-                MessageBox.Show("Skill level must be between 1 and 10!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Skill level must be between {_config.SkillLevelRange.Min} and {_config.SkillLevelRange.Max}!", 
+                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -178,24 +179,24 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Parse loyalty with inline validation (duplicated)
-            if (!int.TryParse(txtLoyalty.Text, out int loyalty) || loyalty < 0 || loyalty > 100)
+            // Parse loyalty with ValidationHelper
+            if (!int.TryParse(txtLoyalty.Text, out int loyalty) || !ValidationHelper.IsValidLoyalty(loyalty))
             {
-                MessageBox.Show("Loyalty must be between 0 and 100!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Loyalty must be between {_config.LoyaltyScoreRange.Min} and {_config.LoyaltyScoreRange.Max}!", 
+                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Business logic for mood (duplicated again - anti-pattern)
+            // Business logic for mood using configuration
             string mood = cboMood.SelectedItem?.ToString();
             if (string.IsNullOrEmpty(mood))
             {
-                // Hardcoded business rule (duplicates Minion.UpdateMood)
-                if (loyalty > 70)
-                    mood = "Happy";
-                else if (loyalty < 40)
-                    mood = "Plotting Betrayal";
+                if (loyalty > _config.HighLoyaltyThreshold)
+                    mood = _config.MoodHappy;
+                else if (loyalty < _config.LowLoyaltyThreshold)
+                    mood = _config.MoodBetrayal;
                 else
-                    mood = "Grumpy";
+                    mood = _config.MoodGrumpy;
             }
 
             // Get base and scheme assignments
@@ -315,14 +316,13 @@ namespace VillainLairManager.Forms
 
         private void LoadComboBoxData()
         {
-            // Direct database calls from UI (anti-pattern)
-            // Hardcoded specialty list (duplicates ValidationHelper and Minion model)
+            // Load specialty list from configuration
             cboSpecialty.Items.Clear();
-            cboSpecialty.Items.AddRange(new object[] { "Hacking", "Explosives", "Disguise", "Combat", "Engineering", "Piloting" });
+            cboSpecialty.Items.AddRange(_config.ValidSpecialties.Cast<object>().ToArray());
 
-            // Hardcoded mood list (another anti-pattern)
+            // Load mood list from configuration
             cboMood.Items.Clear();
-            cboMood.Items.AddRange(new object[] { "Happy", "Grumpy", "Plotting Betrayal", "Exhausted" });
+            cboMood.Items.AddRange(_config.ValidMoodStatuses.Cast<object>().ToArray());
 
             // Load bases from database
             cboBase.Items.Clear();
@@ -405,7 +405,7 @@ namespace VillainLairManager.Forms
             txtName.Clear();
             txtSkillLevel.Clear();
             txtSalary.Clear();
-            txtLoyalty.Text = "50"; // Hardcoded default
+            txtLoyalty.Text = _config.DefaultLoyaltyScore.ToString();
             cboSpecialty.SelectedIndex = -1;
             cboMood.SelectedIndex = -1;
             cboBase.SelectedIndex = 0;

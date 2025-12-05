@@ -21,7 +21,7 @@ namespace VillainLairManager
             if (_isInitialized)
                 return;
 
-            string dbPath = ConfigManager.DatabasePath;
+            string dbPath = ConfigManager.Instance.DatabasePath;
             _connection = new SQLiteConnection($"Data Source={dbPath};Version=3;");
             _connection.Open();
             _isInitialized = true;
