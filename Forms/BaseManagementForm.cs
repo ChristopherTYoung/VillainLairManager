@@ -1,12 +1,16 @@
 using System;
 using System.Windows.Forms;
+using VillainLairManager.Repositories;
 
 namespace VillainLairManager.Forms
 {
     public partial class BaseManagementForm : Form
     {
-        public BaseManagementForm()
+        private readonly ISecretBaseRepository _baseRepository;
+
+        public BaseManagementForm(ISecretBaseRepository baseRepository)
         {
+            _baseRepository = baseRepository ?? throw new ArgumentNullException(nameof(baseRepository));
             InitializeComponent();
         }
 

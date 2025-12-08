@@ -4,39 +4,65 @@ using System.Linq;
 using System.Windows.Forms;
 using VillainLairManager.Models;
 using VillainLairManager.Utils;
+using VillainLairManager.Repositories;
 
 namespace VillainLairManager.Forms
 {
     /// <summary>
     /// Main dashboard form with navigation and statistics
-    /// Contains business logic in UI layer (anti-pattern)
     /// </summary>
     public partial class MainForm : Form
     {
-        public MainForm()
+        private readonly IMinionRepository _minionRepository;
+        private readonly IEvilSchemeRepository _schemeRepository;
+        private readonly ISecretBaseRepository _baseRepository;
+        private readonly IEquipmentRepository _equipmentRepository;
+        private readonly Func<MinionManagementForm> _createMinionForm;
+        private readonly Func<EquipmentInventoryForm> _createEquipmentForm;
+        private readonly Func<SchemeManagementForm> _createSchemeForm;
+        private readonly Func<BaseManagementForm> _createBaseForm;
+
+        public MainForm(
+            IMinionRepository minionRepository,
+            IEvilSchemeRepository schemeRepository,
+            ISecretBaseRepository baseRepository,
+            IEquipmentRepository equipmentRepository,
+            Func<MinionManagementForm> createMinionForm,
+            Func<EquipmentInventoryForm> createEquipmentForm,
+            Func<SchemeManagementForm> createSchemeForm,
+            Func<BaseManagementForm> createBaseForm)
         {
+            _minionRepository = minionRepository ?? throw new ArgumentNullException(nameof(minionRepository));
+            _schemeRepository = schemeRepository ?? throw new ArgumentNullException(nameof(schemeRepository));
+            _baseRepository = baseRepository ?? throw new ArgumentNullException(nameof(baseRepository));
+            _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
+            _createMinionForm = createMinionForm ?? throw new ArgumentNullException(nameof(createMinionForm));
+            _createEquipmentForm = createEquipmentForm ?? throw new ArgumentNullException(nameof(createEquipmentForm));
+            _createSchemeForm = createSchemeForm ?? throw new ArgumentNullException(nameof(createSchemeForm));
+            _createBaseForm = createBaseForm ?? throw new ArgumentNullException(nameof(createBaseForm));
+            
             InitializeComponent();
-            LoadStatistics(); // Business logic in form load (anti-pattern)
+            LoadStatistics();
         }
 
         private void btnMinions_Click(object sender, EventArgs e)
         {
-            OpenForm(new MinionManagementForm());
+            OpenForm(_createMinionForm());
         }
 
         private void btnSchemes_Click(object sender, EventArgs e)
         {
-            OpenForm(new SchemeManagementForm());
+            OpenForm(_createSchemeForm());
         }
 
         private void btnBases_Click(object sender, EventArgs e)
         {
-            OpenForm(new BaseManagementForm());
+            OpenForm(_createBaseForm());
         }
 
         private void btnEquipment_Click(object sender, EventArgs e)
         {
-            OpenForm(new EquipmentInventoryForm());
+            OpenForm(_createEquipmentForm());
         }
 
         private void OpenForm(Form form)
@@ -49,11 +75,10 @@ namespace VillainLairManager.Forms
         // This calculation is duplicated from models
         private void LoadStatistics()
         {
-            // Direct database access from UI (anti-pattern)
-            var minions = DatabaseHelper.GetAllMinions();
-            var schemes = DatabaseHelper.GetAllSchemes();
-            var bases = DatabaseHelper.GetAllBases();
-            var equipment = DatabaseHelper.GetAllEquipment();
+            var minions = _minionRepository.GetAll();
+            var schemes = _schemeRepository.GetAll();
+            var bases = _baseRepository.GetAll();
+            var equipment = _equipmentRepository.GetAll();
 
             // Minion statistics with duplicated mood calculation
             int happyCount = 0, grumpyCount = 0, betrayalCount = 0;

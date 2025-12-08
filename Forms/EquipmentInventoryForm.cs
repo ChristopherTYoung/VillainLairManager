@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using VillainLairManager.Models;
+using VillainLairManager.Repositories;
 
 namespace VillainLairManager.Forms
 {
@@ -12,9 +13,11 @@ namespace VillainLairManager.Forms
         private Button btnAdd, btnEdit, btnDelete, btnMaintain, btnAssign;
         private BindingList<Equipment> equipmentBinding;
         private System.Windows.Forms.Timer degradeTimer;
+        private readonly IEquipmentRepository _equipmentRepository;
 
-        public EquipmentInventoryForm()
+        public EquipmentInventoryForm(IEquipmentRepository equipmentRepository)
         {
+            _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
             InitializeComponent();
         }
 
@@ -95,7 +98,7 @@ namespace VillainLairManager.Forms
         private void EquipmentInventoryForm_Load(object sender, EventArgs e)
         {
             // Load equipment from database
-            var equipmentList = DatabaseHelper.GetAllEquipment();
+            var equipmentList = _equipmentRepository.GetAll();
             equipmentBinding = new BindingList<Equipment>(equipmentList);
             dgvEquipment.DataSource = equipmentBinding;
 
@@ -106,7 +109,7 @@ namespace VillainLairManager.Forms
                 foreach (var eq in equipmentBinding)
                 {
                     eq.DegradeCondition();
-                    DatabaseHelper.UpdateEquipment(eq);
+                    _equipmentRepository.Update(eq);
                 }
                 equipmentBinding.ResetBindings();
             };
@@ -127,9 +130,9 @@ namespace VillainLairManager.Forms
                 RequiresSpecialist = false,
                 LastMaintenanceDate = null
             };
-            DatabaseHelper.InsertEquipment(eq);
+            _equipmentRepository.Insert(eq);
 
-            equipmentBinding.Add(DatabaseHelper.GetAllEquipment()[^1]);
+            equipmentBinding.Add(_equipmentRepository.GetAll()[^1]);
         }
 
         private void BtnEdit_Click(object sender, EventArgs e)
@@ -197,7 +200,7 @@ namespace VillainLairManager.Forms
                     eq.RequiresSpecialist = chkRequiresSpecialist.Checked;
                     eq.StoredAtBaseId = string.IsNullOrWhiteSpace(txtStoredAtBaseId.Text) ? null : int.Parse(txtStoredAtBaseId.Text);
 
-                    DatabaseHelper.UpdateEquipment(eq);
+                    _equipmentRepository.Update(eq);
                     equipmentBinding.ResetBindings();
                 }
             }
@@ -210,7 +213,7 @@ namespace VillainLairManager.Forms
         {
             if (dgvEquipment.CurrentRow?.DataBoundItem is Equipment eq)
             {
-                DatabaseHelper.DeleteEquipment(eq.EquipmentId);
+                _equipmentRepository.Delete(eq.EquipmentId);
                 equipmentBinding.Remove(eq);
             }
         }
@@ -221,7 +224,7 @@ namespace VillainLairManager.Forms
             {
                 eq.PerformMaintenance();
                 eq.LastMaintenanceDate = DateTime.Now;
-                DatabaseHelper.UpdateEquipment(eq);
+                _equipmentRepository.Update(eq);
                 equipmentBinding.ResetBindings();
             }
         }
@@ -234,7 +237,7 @@ namespace VillainLairManager.Forms
                 if (int.TryParse(schemeIdStr, out int schemeId))
                 {
                     eq.AssignedToSchemeId = schemeId;
-                    DatabaseHelper.UpdateEquipment(eq);
+                    _equipmentRepository.Update(eq);
                     equipmentBinding.ResetBindings();
                 }
             }

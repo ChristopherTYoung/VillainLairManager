@@ -3,12 +3,12 @@ using System.Linq;
 using System.Windows.Forms;
 using VillainLairManager.Models;
 using VillainLairManager.Utils;
+using VillainLairManager.Repositories;
 
 namespace VillainLairManager.Forms
 {
     /// <summary>
-    /// Minion management form with business logic in event handlers (anti-pattern)
-    /// Contains CRUD operations with validation and business rules mixed into UI
+    /// Minion management form with dependency injection
     /// </summary>
     public partial class MinionManagementForm : Form
     {
@@ -18,9 +18,16 @@ namespace VillainLairManager.Forms
         private Button btnAdd, btnUpdate, btnDelete, btnRefresh;
         private Label lblName, lblSkillLevel, lblSpecialty, lblSalary, lblLoyalty, lblMood, lblBase, lblScheme;
         private ConfigManager _config = ConfigManager.Instance;
+        private readonly IMinionRepository _minionRepository;
+        private readonly ISecretBaseRepository _baseRepository;
+        private readonly IEvilSchemeRepository _schemeRepository;
 
-        public MinionManagementForm()
+        public MinionManagementForm(IMinionRepository minionRepository, ISecretBaseRepository baseRepository, IEvilSchemeRepository schemeRepository)
         {
+            _minionRepository = minionRepository ?? throw new ArgumentNullException(nameof(minionRepository));
+            _baseRepository = baseRepository ?? throw new ArgumentNullException(nameof(baseRepository));
+            _schemeRepository = schemeRepository ?? throw new ArgumentNullException(nameof(schemeRepository));
+            
             InitializeComponent();
             LoadComboBoxData();
             RefreshGrid();
@@ -128,7 +135,7 @@ namespace VillainLairManager.Forms
 
             try
             {
-                DatabaseHelper.InsertMinion(minion);
+                _minionRepository.Insert(minion);
                 MessageBox.Show("Minion added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshGrid();
                 ClearFields();
@@ -235,7 +242,7 @@ namespace VillainLairManager.Forms
 
             try
             {
-                DatabaseHelper.UpdateMinion(minion);
+                _minionRepository.Update(minion);
                 MessageBox.Show("Minion updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshGrid();
                 ClearFields();
@@ -270,8 +277,7 @@ namespace VillainLairManager.Forms
             {
                 try
                 {
-                    // Direct database call from UI (anti-pattern)
-                    DatabaseHelper.DeleteMinion(minionId);
+                    _minionRepository.Delete(minionId);
                     MessageBox.Show("Minion deleted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     RefreshGrid();
                     ClearFields();
@@ -292,9 +298,8 @@ namespace VillainLairManager.Forms
 
         private void RefreshGrid()
         {
-            // Direct database call (anti-pattern)
             dgvMinions.DataSource = null;
-            dgvMinions.DataSource = DatabaseHelper.GetAllMinions();
+            dgvMinions.DataSource = _minionRepository.GetAll();
 
             // Format grid columns
             if (dgvMinions.Columns.Count > 0)
@@ -327,7 +332,7 @@ namespace VillainLairManager.Forms
             // Load bases from database
             cboBase.Items.Clear();
             cboBase.Items.Add("(None)");
-            var bases = DatabaseHelper.GetAllBases();
+            var bases = _baseRepository.GetAll();
             foreach (var b in bases)
             {
                 cboBase.Items.Add($"{b.BaseId}: {b.Name}");
@@ -336,7 +341,7 @@ namespace VillainLairManager.Forms
             // Load schemes from database
             cboScheme.Items.Clear();
             cboScheme.Items.Add("(None)");
-            var schemes = DatabaseHelper.GetAllSchemes();
+            var schemes = _schemeRepository.GetAll();
             foreach (var s in schemes)
             {
                 cboScheme.Items.Add($"{s.SchemeId}: {s.Name}");

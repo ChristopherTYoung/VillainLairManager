@@ -1,12 +1,16 @@
 using System;
 using System.Windows.Forms;
+using VillainLairManager.Repositories;
 
 namespace VillainLairManager.Forms
 {
     public partial class SchemeManagementForm : Form
     {
-        public SchemeManagementForm()
+        private readonly IEvilSchemeRepository _schemeRepository;
+
+        public SchemeManagementForm(IEvilSchemeRepository schemeRepository)
         {
+            _schemeRepository = schemeRepository ?? throw new ArgumentNullException(nameof(schemeRepository));
             InitializeComponent();
         }
 

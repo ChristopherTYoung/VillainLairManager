@@ -1,15 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Data;
 using System.Data.SQLite;
-using VillainLairManager.Models;
 using VillainLairManager.Utils;
 
 namespace VillainLairManager
 {
     /// <summary>
-    /// Static singleton database helper - THE MAIN ANTI-PATTERN
-    /// This god class handles all database operations and some business logic
+    /// Database helper for initialization only - CRUD operations moved to repositories
     /// </summary>
     public static class DatabaseHelper
     {
@@ -25,6 +21,13 @@ namespace VillainLairManager
             _connection = new SQLiteConnection($"Data Source={dbPath};Version=3;");
             _connection.Open();
             _isInitialized = true;
+        }
+
+        public static SQLiteConnection GetConnection()
+        {
+            if (!_isInitialized)
+                throw new InvalidOperationException("DatabaseHelper must be initialized first.");
+            return _connection;
         }
 
         public static void CreateSchemaIfNotExists()
@@ -99,15 +102,9 @@ namespace VillainLairManager
             ");
         }
 
-        private static void ExecuteNonQuery(string sql)
-        {
-            var command = new SQLiteCommand(sql, _connection);
-            command.ExecuteNonQuery();
-        }
-
         public static void SeedInitialData()
         {
-            // Check if data already exists (but always seed anyway - anti-pattern)
+            // Check if data already exists
             var minionCount = ExecuteScalar<long>("SELECT COUNT(*) FROM Minions");
             if (minionCount > 0)
                 return; // Data already exists
@@ -164,78 +161,31 @@ namespace VillainLairManager
             ");
         }
 
-        // ===== MINION CRUD OPERATIONS =====
-
-        public static List<Minion> GetAllMinions()
+        private static void ExecuteNonQuery(string sql)
         {
-            var minions = new List<Minion>();
-            var command = new SQLiteCommand("SELECT * FROM Minions", _connection);
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                minions.Add(new Minion
-                {
-                    MinionId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    SkillLevel = reader.GetInt32(2),
-                    Specialty = reader.GetString(3),
-                    LoyaltyScore = reader.GetInt32(4),
-                    SalaryDemand = reader.GetDecimal(5),
-                    CurrentBaseId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                    CurrentSchemeId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
-                    MoodStatus = reader.GetString(8),
-                    LastMoodUpdate = DateTime.Parse(reader.GetString(9))
-                });
-            }
-
-            return minions;
-        }
-
-        public static Minion GetMinionById(int minionId)
-        {
-            var command = new SQLiteCommand("SELECT * FROM Minions WHERE MinionId = @id", _connection);
-            command.Parameters.AddWithValue("@id", minionId);
-            var reader = command.ExecuteReader();
-
-            if (reader.Read())
-            {
-                return new Minion
-                {
-                    MinionId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    SkillLevel = reader.GetInt32(2),
-                    Specialty = reader.GetString(3),
-                    LoyaltyScore = reader.GetInt32(4),
-                    SalaryDemand = reader.GetDecimal(5),
-                    CurrentBaseId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                    CurrentSchemeId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
-                    MoodStatus = reader.GetString(8),
-                    LastMoodUpdate = DateTime.Parse(reader.GetString(9))
-                };
-            }
-
-            return null;
-        }
-
-        public static void InsertMinion(Minion minion)
-        {
-            var sql = @"INSERT INTO Minions (Name, SkillLevel, Specialty, LoyaltyScore, SalaryDemand, CurrentBaseId, CurrentSchemeId, MoodStatus, LastMoodUpdate)
-                       VALUES (@name, @skill, @specialty, @loyalty, @salary, @baseId, @schemeId, @mood, @lastUpdate)";
             var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@name", minion.Name);
-            command.Parameters.AddWithValue("@skill", minion.SkillLevel);
-            command.Parameters.AddWithValue("@specialty", minion.Specialty);
-            command.Parameters.AddWithValue("@loyalty", minion.LoyaltyScore);
-            command.Parameters.AddWithValue("@salary", minion.SalaryDemand);
-            command.Parameters.AddWithValue("@baseId", minion.CurrentBaseId.HasValue ? (object)minion.CurrentBaseId.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@schemeId", minion.CurrentSchemeId.HasValue ? (object)minion.CurrentSchemeId.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@mood", minion.MoodStatus);
-            command.Parameters.AddWithValue("@lastUpdate", minion.LastMoodUpdate.ToString("yyyy-MM-dd"));
             command.ExecuteNonQuery();
         }
 
-        public static void UpdateMinion(Minion minion)
+        private static T ExecuteScalar<T>(string sql)
+        {
+            var command = new SQLiteCommand(sql, _connection);
+            var result = command.ExecuteScalar();
+            if (result == null || result == DBNull.Value)
+                return default(T);
+            return (T)Convert.ChangeType(result, typeof(T));
+        }
+
+        // Legacy methods for Models that still reference DatabaseHelper (anti-pattern to be fixed separately)
+        public static int GetBaseOccupancy(int baseId)
+        {
+            var command = new SQLiteCommand("SELECT COUNT(*) FROM Minions WHERE CurrentBaseId = @id", _connection);
+            command.Parameters.AddWithValue("@id", baseId);
+            var result = command.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+
+        public static void UpdateMinion(Models.Minion minion)
         {
             var sql = @"UPDATE Minions SET Name = @name, SkillLevel = @skill, Specialty = @specialty,
                        LoyaltyScore = @loyalty, SalaryDemand = @salary, CurrentBaseId = @baseId,
@@ -255,45 +205,7 @@ namespace VillainLairManager
             command.ExecuteNonQuery();
         }
 
-        public static void DeleteMinion(int minionId)
-        {
-            // No error handling - just delete (anti-pattern)
-            var command = new SQLiteCommand("DELETE FROM Minions WHERE MinionId = @id", _connection);
-            command.Parameters.AddWithValue("@id", minionId);
-            command.ExecuteNonQuery();
-        }
-
-        // ===== EVIL SCHEME CRUD OPERATIONS =====
-
-        public static List<EvilScheme> GetAllSchemes()
-        {
-            var schemes = new List<EvilScheme>();
-            var command = new SQLiteCommand("SELECT * FROM EvilSchemes", _connection);
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                schemes.Add(new EvilScheme
-                {
-                    SchemeId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Description = reader.GetString(2),
-                    Budget = reader.GetDecimal(3),
-                    CurrentSpending = reader.GetDecimal(4),
-                    RequiredSkillLevel = reader.GetInt32(5),
-                    RequiredSpecialty = reader.GetString(6),
-                    Status = reader.GetString(7),
-                    StartDate = reader.IsDBNull(8) ? null : (DateTime?)DateTime.Parse(reader.GetString(8)),
-                    TargetCompletionDate = DateTime.Parse(reader.GetString(9)),
-                    DiabolicalRating = reader.GetInt32(10),
-                    SuccessLikelihood = reader.GetInt32(11)
-                });
-            }
-
-            return schemes;
-        }
-
-        public static EvilScheme GetSchemeById(int schemeId)
+        public static Models.EvilScheme GetSchemeById(int schemeId)
         {
             var command = new SQLiteCommand("SELECT * FROM EvilSchemes WHERE SchemeId = @id", _connection);
             command.Parameters.AddWithValue("@id", schemeId);
@@ -301,7 +213,7 @@ namespace VillainLairManager
 
             if (reader.Read())
             {
-                return new EvilScheme
+                return new Models.EvilScheme
                 {
                     SchemeId = reader.GetInt32(0),
                     Name = reader.GetString(1),
@@ -321,221 +233,7 @@ namespace VillainLairManager
             return null;
         }
 
-        public static void InsertScheme(EvilScheme scheme)
-        {
-            var sql = @"INSERT INTO EvilSchemes (Name, Description, Budget, CurrentSpending, RequiredSkillLevel, RequiredSpecialty, Status, StartDate, TargetCompletionDate, DiabolicalRating, SuccessLikelihood)
-                       VALUES (@name, @desc, @budget, @spending, @skill, @specialty, @status, @start, @target, @rating, @success)";
-            var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@name", scheme.Name);
-            command.Parameters.AddWithValue("@desc", scheme.Description);
-            command.Parameters.AddWithValue("@budget", scheme.Budget);
-            command.Parameters.AddWithValue("@spending", scheme.CurrentSpending);
-            command.Parameters.AddWithValue("@skill", scheme.RequiredSkillLevel);
-            command.Parameters.AddWithValue("@specialty", scheme.RequiredSpecialty);
-            command.Parameters.AddWithValue("@status", scheme.Status);
-            command.Parameters.AddWithValue("@start", scheme.StartDate.HasValue ? (object)scheme.StartDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
-            command.Parameters.AddWithValue("@target", scheme.TargetCompletionDate.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@rating", scheme.DiabolicalRating);
-            command.Parameters.AddWithValue("@success", scheme.SuccessLikelihood);
-            command.ExecuteNonQuery();
-        }
-
-        public static void UpdateScheme(EvilScheme scheme)
-        {
-            var sql = @"UPDATE EvilSchemes SET Name = @name, Description = @desc, Budget = @budget,
-                       CurrentSpending = @spending, RequiredSkillLevel = @skill, RequiredSpecialty = @specialty,
-                       Status = @status, StartDate = @start, TargetCompletionDate = @target,
-                       DiabolicalRating = @rating, SuccessLikelihood = @success
-                       WHERE SchemeId = @id";
-            var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@id", scheme.SchemeId);
-            command.Parameters.AddWithValue("@name", scheme.Name);
-            command.Parameters.AddWithValue("@desc", scheme.Description);
-            command.Parameters.AddWithValue("@budget", scheme.Budget);
-            command.Parameters.AddWithValue("@spending", scheme.CurrentSpending);
-            command.Parameters.AddWithValue("@skill", scheme.RequiredSkillLevel);
-            command.Parameters.AddWithValue("@specialty", scheme.RequiredSpecialty);
-            command.Parameters.AddWithValue("@status", scheme.Status);
-            command.Parameters.AddWithValue("@start", scheme.StartDate.HasValue ? (object)scheme.StartDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
-            command.Parameters.AddWithValue("@target", scheme.TargetCompletionDate.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@rating", scheme.DiabolicalRating);
-            command.Parameters.AddWithValue("@success", scheme.SuccessLikelihood);
-            command.ExecuteNonQuery();
-        }
-
-        public static void DeleteScheme(int schemeId)
-        {
-            var command = new SQLiteCommand("DELETE FROM EvilSchemes WHERE SchemeId = @id", _connection);
-            command.Parameters.AddWithValue("@id", schemeId);
-            command.ExecuteNonQuery();
-        }
-
-        // ===== SECRET BASE CRUD OPERATIONS =====
-
-        public static List<SecretBase> GetAllBases()
-        {
-            var bases = new List<SecretBase>();
-            var command = new SQLiteCommand("SELECT * FROM SecretBases", _connection);
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                bases.Add(new SecretBase
-                {
-                    BaseId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Location = reader.GetString(2),
-                    Capacity = reader.GetInt32(3),
-                    SecurityLevel = reader.GetInt32(4),
-                    MonthlyMaintenanceCost = reader.GetDecimal(5),
-                    HasDoomsdayDevice = reader.GetInt32(6) == 1,
-                    IsDiscovered = reader.GetInt32(7) == 1,
-                    LastInspectionDate = reader.IsDBNull(8) ? null : (DateTime?)DateTime.Parse(reader.GetString(8))
-                });
-            }
-
-            return bases;
-        }
-
-        public static SecretBase GetBaseById(int baseId)
-        {
-            var command = new SQLiteCommand("SELECT * FROM SecretBases WHERE BaseId = @id", _connection);
-            command.Parameters.AddWithValue("@id", baseId);
-            var reader = command.ExecuteReader();
-
-            if (reader.Read())
-            {
-                return new SecretBase
-                {
-                    BaseId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Location = reader.GetString(2),
-                    Capacity = reader.GetInt32(3),
-                    SecurityLevel = reader.GetInt32(4),
-                    MonthlyMaintenanceCost = reader.GetDecimal(5),
-                    HasDoomsdayDevice = reader.GetInt32(6) == 1,
-                    IsDiscovered = reader.GetInt32(7) == 1,
-                    LastInspectionDate = reader.IsDBNull(8) ? null : (DateTime?)DateTime.Parse(reader.GetString(8))
-                };
-            }
-
-            return null;
-        }
-
-        public static void InsertBase(SecretBase baseObj)
-        {
-            var sql = @"INSERT INTO SecretBases (Name, Location, Capacity, SecurityLevel, MonthlyMaintenanceCost, HasDoomsdayDevice, IsDiscovered, LastInspectionDate)
-                       VALUES (@name, @location, @capacity, @security, @cost, @doomsday, @discovered, @inspection)";
-            var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@name", baseObj.Name);
-            command.Parameters.AddWithValue("@location", baseObj.Location);
-            command.Parameters.AddWithValue("@capacity", baseObj.Capacity);
-            command.Parameters.AddWithValue("@security", baseObj.SecurityLevel);
-            command.Parameters.AddWithValue("@cost", baseObj.MonthlyMaintenanceCost);
-            command.Parameters.AddWithValue("@doomsday", baseObj.HasDoomsdayDevice ? 1 : 0);
-            command.Parameters.AddWithValue("@discovered", baseObj.IsDiscovered ? 1 : 0);
-            command.Parameters.AddWithValue("@inspection", baseObj.LastInspectionDate.HasValue ? (object)baseObj.LastInspectionDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
-            command.ExecuteNonQuery();
-        }
-
-        public static void UpdateBase(SecretBase baseObj)
-        {
-            var sql = @"UPDATE SecretBases SET Name = @name, Location = @location, Capacity = @capacity,
-                       SecurityLevel = @security, MonthlyMaintenanceCost = @cost, HasDoomsdayDevice = @doomsday,
-                       IsDiscovered = @discovered, LastInspectionDate = @inspection
-                       WHERE BaseId = @id";
-            var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@id", baseObj.BaseId);
-            command.Parameters.AddWithValue("@name", baseObj.Name);
-            command.Parameters.AddWithValue("@location", baseObj.Location);
-            command.Parameters.AddWithValue("@capacity", baseObj.Capacity);
-            command.Parameters.AddWithValue("@security", baseObj.SecurityLevel);
-            command.Parameters.AddWithValue("@cost", baseObj.MonthlyMaintenanceCost);
-            command.Parameters.AddWithValue("@doomsday", baseObj.HasDoomsdayDevice ? 1 : 0);
-            command.Parameters.AddWithValue("@discovered", baseObj.IsDiscovered ? 1 : 0);
-            command.Parameters.AddWithValue("@inspection", baseObj.LastInspectionDate.HasValue ? (object)baseObj.LastInspectionDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
-            command.ExecuteNonQuery();
-        }
-
-        public static void DeleteBase(int baseId)
-        {
-            var command = new SQLiteCommand("DELETE FROM SecretBases WHERE BaseId = @id", _connection);
-            command.Parameters.AddWithValue("@id", baseId);
-            command.ExecuteNonQuery();
-        }
-
-        // ===== EQUIPMENT CRUD OPERATIONS =====
-
-        public static List<Equipment> GetAllEquipment()
-        {
-            var equipment = new List<Equipment>();
-            var command = new SQLiteCommand("SELECT * FROM Equipment", _connection);
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                equipment.Add(new Equipment
-                {
-                    EquipmentId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Category = reader.GetString(2),
-                    Condition = reader.GetInt32(3),
-                    PurchasePrice = reader.GetDecimal(4),
-                    MaintenanceCost = reader.GetDecimal(5),
-                    AssignedToSchemeId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                    StoredAtBaseId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
-                    RequiresSpecialist = reader.GetInt32(8) == 1,
-                    LastMaintenanceDate = reader.IsDBNull(9) ? null : (DateTime?)DateTime.Parse(reader.GetString(9))
-                });
-            }
-
-            return equipment;
-        }
-
-        public static Equipment GetEquipmentById(int equipmentId)
-        {
-            var command = new SQLiteCommand("SELECT * FROM Equipment WHERE EquipmentId = @id", _connection);
-            command.Parameters.AddWithValue("@id", equipmentId);
-            var reader = command.ExecuteReader();
-
-            if (reader.Read())
-            {
-                return new Equipment
-                {
-                    EquipmentId = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Category = reader.GetString(2),
-                    Condition = reader.GetInt32(3),
-                    PurchasePrice = reader.GetDecimal(4),
-                    MaintenanceCost = reader.GetDecimal(5),
-                    AssignedToSchemeId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                    StoredAtBaseId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
-                    RequiresSpecialist = reader.GetInt32(8) == 1,
-                    LastMaintenanceDate = reader.IsDBNull(9) ? null : (DateTime?)DateTime.Parse(reader.GetString(9))
-                };
-            }
-
-            return null;
-        }
-
-        public static void InsertEquipment(Equipment equipment)
-        {
-            var sql = @"INSERT INTO Equipment (Name, Category, Condition, PurchasePrice, MaintenanceCost, AssignedToSchemeId, StoredAtBaseId, RequiresSpecialist, LastMaintenanceDate)
-                       VALUES (@name, @category, @condition, @price, @maintenance, @schemeId, @baseId, @specialist, @lastMaint)";
-            var command = new SQLiteCommand(sql, _connection);
-            command.Parameters.AddWithValue("@name", equipment.Name);
-            command.Parameters.AddWithValue("@category", equipment.Category);
-            command.Parameters.AddWithValue("@condition", equipment.Condition);
-            command.Parameters.AddWithValue("@price", equipment.PurchasePrice);
-            command.Parameters.AddWithValue("@maintenance", equipment.MaintenanceCost);
-            command.Parameters.AddWithValue("@schemeId", equipment.AssignedToSchemeId.HasValue ? (object)equipment.AssignedToSchemeId.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@baseId", equipment.StoredAtBaseId.HasValue ? (object)equipment.StoredAtBaseId.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@specialist", equipment.RequiresSpecialist ? 1 : 0);
-            command.Parameters.AddWithValue("@lastMaint", equipment.LastMaintenanceDate.HasValue ? (object)equipment.LastMaintenanceDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
-            command.ExecuteNonQuery();
-        }
-
-        public static void UpdateEquipment(Equipment equipment)
+        public static void UpdateEquipment(Models.Equipment equipment)
         {
             var sql = @"UPDATE Equipment SET Name = @name, Category = @category, Condition = @condition,
                        PurchasePrice = @price, MaintenanceCost = @maintenance, AssignedToSchemeId = @schemeId,
@@ -555,45 +253,56 @@ namespace VillainLairManager
             command.ExecuteNonQuery();
         }
 
-        public static void DeleteEquipment(int equipmentId)
+        public static System.Collections.Generic.List<Models.Minion> GetAllMinions()
         {
-            var command = new SQLiteCommand("DELETE FROM Equipment WHERE EquipmentId = @id", _connection);
-            command.Parameters.AddWithValue("@id", equipmentId);
-            command.ExecuteNonQuery();
-        }
+            var minions = new System.Collections.Generic.List<Models.Minion>();
+            var command = new SQLiteCommand("SELECT * FROM Minions", _connection);
+            var reader = command.ExecuteReader();
 
-        // ===== HELPER QUERIES =====
-
-        public static int GetBaseOccupancy(int baseId)
-        {
-            return ExecuteScalar<int>("SELECT COUNT(*) FROM Minions WHERE CurrentBaseId = @id",
-                new SQLiteParameter("@id", baseId));
-        }
-
-        public static int GetSchemeAssignedMinionsCount(int schemeId)
-        {
-            return ExecuteScalar<int>("SELECT COUNT(*) FROM Minions WHERE CurrentSchemeId = @id",
-                new SQLiteParameter("@id", schemeId));
-        }
-
-        public static int GetSchemeAssignedEquipmentCount(int schemeId)
-        {
-            return ExecuteScalar<int>("SELECT COUNT(*) FROM Equipment WHERE AssignedToSchemeId = @id",
-                new SQLiteParameter("@id", schemeId));
-        }
-
-        private static T ExecuteScalar<T>(string sql, params SQLiteParameter[] parameters)
-        {
-            var command = new SQLiteCommand(sql, _connection);
-            if (parameters != null)
+            while (reader.Read())
             {
-                foreach (var param in parameters)
-                    command.Parameters.Add(param);
+                minions.Add(new Models.Minion
+                {
+                    MinionId = reader.GetInt32(0),
+                    Name = reader.GetString(1),
+                    SkillLevel = reader.GetInt32(2),
+                    Specialty = reader.GetString(3),
+                    LoyaltyScore = reader.GetInt32(4),
+                    SalaryDemand = reader.GetDecimal(5),
+                    CurrentBaseId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
+                    CurrentSchemeId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
+                    MoodStatus = reader.GetString(8),
+                    LastMoodUpdate = DateTime.Parse(reader.GetString(9))
+                });
             }
-            var result = command.ExecuteScalar();
-            if (result == null || result == DBNull.Value)
-                return default(T);
-            return (T)Convert.ChangeType(result, typeof(T));
+
+            return minions;
+        }
+
+        public static System.Collections.Generic.List<Models.Equipment> GetAllEquipment()
+        {
+            var equipment = new System.Collections.Generic.List<Models.Equipment>();
+            var command = new SQLiteCommand("SELECT * FROM Equipment", _connection);
+            var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                equipment.Add(new Models.Equipment
+                {
+                    EquipmentId = reader.GetInt32(0),
+                    Name = reader.GetString(1),
+                    Category = reader.GetString(2),
+                    Condition = reader.GetInt32(3),
+                    PurchasePrice = reader.GetDecimal(4),
+                    MaintenanceCost = reader.GetDecimal(5),
+                    AssignedToSchemeId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
+                    StoredAtBaseId = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
+                    RequiresSpecialist = reader.GetInt32(8) == 1,
+                    LastMaintenanceDate = reader.IsDBNull(9) ? null : (DateTime?)DateTime.Parse(reader.GetString(9))
+                });
+            }
+
+            return equipment;
         }
     }
 }
