@@ -5,37 +5,30 @@ using System.Windows.Forms;
 using VillainLairManager.Models;
 using VillainLairManager.Utils;
 using VillainLairManager.Repositories;
+using VillainLairManager.Services;
 
 namespace VillainLairManager.Forms
 {
     /// <summary>
     /// Main dashboard form with navigation and statistics
+    /// Business logic extracted to StatisticsService
     /// </summary>
     public partial class MainForm : Form
     {
-        private readonly IMinionRepository _minionRepository;
-        private readonly IEvilSchemeRepository _schemeRepository;
-        private readonly ISecretBaseRepository _baseRepository;
-        private readonly IEquipmentRepository _equipmentRepository;
+        private readonly IStatisticsService _statisticsService;
         private readonly Func<MinionManagementForm> _createMinionForm;
         private readonly Func<EquipmentInventoryForm> _createEquipmentForm;
         private readonly Func<SchemeManagementForm> _createSchemeForm;
         private readonly Func<BaseManagementForm> _createBaseForm;
 
         public MainForm(
-            IMinionRepository minionRepository,
-            IEvilSchemeRepository schemeRepository,
-            ISecretBaseRepository baseRepository,
-            IEquipmentRepository equipmentRepository,
+            IStatisticsService statisticsService,
             Func<MinionManagementForm> createMinionForm,
             Func<EquipmentInventoryForm> createEquipmentForm,
             Func<SchemeManagementForm> createSchemeForm,
             Func<BaseManagementForm> createBaseForm)
         {
-            _minionRepository = minionRepository ?? throw new ArgumentNullException(nameof(minionRepository));
-            _schemeRepository = schemeRepository ?? throw new ArgumentNullException(nameof(schemeRepository));
-            _baseRepository = baseRepository ?? throw new ArgumentNullException(nameof(baseRepository));
-            _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
+            _statisticsService = statisticsService ?? throw new ArgumentNullException(nameof(statisticsService));
             _createMinionForm = createMinionForm ?? throw new ArgumentNullException(nameof(createMinionForm));
             _createEquipmentForm = createEquipmentForm ?? throw new ArgumentNullException(nameof(createEquipmentForm));
             _createSchemeForm = createSchemeForm ?? throw new ArgumentNullException(nameof(createSchemeForm));
@@ -71,95 +64,23 @@ namespace VillainLairManager.Forms
             LoadStatistics(); // Refresh after closing child form
         }
 
-        // Business logic in UI layer (anti-pattern)
-        // This calculation is duplicated from models
+        // Statistics now calculated by service (business logic extracted from UI)
         private void LoadStatistics()
         {
-            var minions = _minionRepository.GetAll();
-            var schemes = _schemeRepository.GetAll();
-            var bases = _baseRepository.GetAll();
-            var equipment = _equipmentRepository.GetAll();
+            // Use service to calculate all statistics - no business logic in UI
+            var stats = _statisticsService.CalculateDashboardStatistics();
 
-            // Minion statistics with duplicated mood calculation
-            int happyCount = 0, grumpyCount = 0, betrayalCount = 0;
-            foreach (var minion in minions)
-            {
-                // Mood calculation duplicated from Minion.UpdateMood() (anti-pattern)
-                if (minion.LoyaltyScore > 70)
-                    happyCount++;
-                else if (minion.LoyaltyScore < 40)
-                    betrayalCount++;
-                else
-                    grumpyCount++;
-            }
+            // Display minion statistics
+            lblMinionStats.Text = $"Minions: {stats.TotalMinions} total | Happy: {stats.HappyMinions} | Grumpy: {stats.GrumpyMinions} | Plotting Betrayal: {stats.BetrayalMinions}";
 
-            lblMinionStats.Text = $"Minions: {minions.Count} total | Happy: {happyCount} | Grumpy: {grumpyCount} | Plotting Betrayal: {betrayalCount}";
+            // Display scheme statistics
+            lblSchemeStats.Text = $"Evil Schemes: {stats.TotalSchemes} total | Active: {stats.ActiveSchemes} | Avg Success Likelihood: {stats.AverageSuccessLikelihood:F1}%";
 
-            // Scheme statistics with duplicated success calculation
-            var activeSchemes = schemes.Where(s => s.Status == "Active").ToList();
-            double avgSuccess = 0;
-            if (activeSchemes.Any())
-            {
-                // Success likelihood calculation duplicated here (anti-pattern)
-                foreach (var scheme in activeSchemes)
-                {
-                    // This is also in EvilScheme.CalculateSuccessLikelihood() - duplication!
-                    int success = scheme.CalculateSuccessLikelihood();
-                    avgSuccess += success;
-                }
-                avgSuccess /= activeSchemes.Count;
-            }
+            // Display cost statistics
+            lblCostStats.Text = $"Monthly Costs: Minions: ${stats.TotalMinionSalaries:N0} | Bases: ${stats.TotalBaseCosts:N0} | Equipment: ${stats.TotalEquipmentCosts:N0} | TOTAL: ${stats.TotalMonthlyCost:N0}";
 
-            lblSchemeStats.Text = $"Evil Schemes: {schemes.Count} total | Active: {activeSchemes.Count} | Avg Success Likelihood: {avgSuccess:F1}%";
-
-            // Cost calculation (business logic in UI)
-            decimal totalMinionSalaries = 0;
-            foreach (var minion in minions)
-            {
-                totalMinionSalaries += minion.SalaryDemand;
-            }
-
-            decimal totalBaseCosts = 0;
-            foreach (var baseObj in bases)
-            {
-                totalBaseCosts += baseObj.MonthlyMaintenanceCost;
-            }
-
-            decimal totalEquipmentCosts = 0;
-            foreach (var equip in equipment)
-            {
-                totalEquipmentCosts += equip.MaintenanceCost;
-            }
-
-            decimal totalMonthlyCost = totalMinionSalaries + totalBaseCosts + totalEquipmentCosts;
-
-            lblCostStats.Text = $"Monthly Costs: Minions: ${totalMinionSalaries:N0} | Bases: ${totalBaseCosts:N0} | Equipment: ${totalEquipmentCosts:N0} | TOTAL: ${totalMonthlyCost:N0}";
-
-            // Alerts (more business logic in UI)
-            var alerts = "";
-
-            // Low loyalty alert
-            var lowLoyaltyMinions = minions.Where(m => m.LoyaltyScore < 40).Count();
-            if (lowLoyaltyMinions > 0)
-            {
-                alerts += $"⚠ Warning: {lowLoyaltyMinions} minions have low loyalty and may betray you! ";
-            }
-
-            // Broken equipment alert
-            var brokenEquipment = equipment.Where(e => e.Condition < 20).Count();
-            if (brokenEquipment > 0)
-            {
-                alerts += $"⚠ {brokenEquipment} equipment items are broken! ";
-            }
-
-            // Over budget schemes
-            var overBudgetSchemes = schemes.Where(s => s.CurrentSpending > s.Budget).Count();
-            if (overBudgetSchemes > 0)
-            {
-                alerts += $"⚠ {overBudgetSchemes} schemes are over budget! ";
-            }
-
-            lblAlerts.Text = string.IsNullOrEmpty(alerts) ? "✓ All systems operational" : alerts;
+            // Display alerts
+            lblAlerts.Text = string.Join(" ", stats.Alerts);
         }
     }
 }

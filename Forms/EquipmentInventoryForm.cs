@@ -4,20 +4,24 @@ using System.Drawing;
 using System.Windows.Forms;
 using VillainLairManager.Models;
 using VillainLairManager.Repositories;
+using VillainLairManager.Services;
 
 namespace VillainLairManager.Forms
 {
+    /// <summary>
+    /// Equipment inventory form using service layer for business logic
+    /// </summary>
     public partial class EquipmentInventoryForm : Form
     {
         private DataGridView dgvEquipment;
         private Button btnAdd, btnEdit, btnDelete, btnMaintain, btnAssign;
         private BindingList<Equipment> equipmentBinding;
         private System.Windows.Forms.Timer degradeTimer;
-        private readonly IEquipmentRepository _equipmentRepository;
+        private readonly IEquipmentService _equipmentService;
 
-        public EquipmentInventoryForm(IEquipmentRepository equipmentRepository)
+        public EquipmentInventoryForm(IEquipmentService equipmentService)
         {
-            _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
+            _equipmentService = equipmentService ?? throw new ArgumentNullException(nameof(equipmentService));
             InitializeComponent();
         }
 
@@ -97,19 +101,18 @@ namespace VillainLairManager.Forms
 
         private void EquipmentInventoryForm_Load(object sender, EventArgs e)
         {
-            // Load equipment from database
-            var equipmentList = _equipmentRepository.GetAll();
+            // Load equipment using service
+            var equipmentList = _equipmentService.GetAllEquipment();
             equipmentBinding = new BindingList<Equipment>(equipmentList);
             dgvEquipment.DataSource = equipmentBinding;
 
-            // Timer for condition degradation
+            // Timer for condition degradation - using service for business logic
             degradeTimer = new System.Windows.Forms.Timer { Interval = 60000 }; // 1 minute
             degradeTimer.Tick += (s, args) =>
             {
                 foreach (var eq in equipmentBinding)
                 {
-                    eq.DegradeCondition();
-                    _equipmentRepository.Update(eq);
+                    _equipmentService.DegradeCondition(eq);
                 }
                 equipmentBinding.ResetBindings();
             };
@@ -118,21 +121,23 @@ namespace VillainLairManager.Forms
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
-            var eq = new Equipment
-            {
-                Name = "New Equipment",
-                Category = "Gadget",
-                Condition = 100,
-                PurchasePrice = 0,
-                MaintenanceCost = 0,
-                AssignedToSchemeId = null,
-                StoredAtBaseId = null,
-                RequiresSpecialist = false,
-                LastMaintenanceDate = null
-            };
-            _equipmentRepository.Insert(eq);
+            // Use service to create new equipment with default values
+            var result = _equipmentService.CreateEquipment(
+                "New Equipment",
+                "Gadget",
+                0,
+                0,
+                false,
+                null);
 
-            equipmentBinding.Add(_equipmentRepository.GetAll()[^1]);
+            if (result.success)
+            {
+                equipmentBinding.Add(_equipmentService.GetAllEquipment()[^1]);
+            }
+            else
+            {
+                MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void BtnEdit_Click(object sender, EventArgs e)
@@ -200,7 +205,12 @@ namespace VillainLairManager.Forms
                     eq.RequiresSpecialist = chkRequiresSpecialist.Checked;
                     eq.StoredAtBaseId = string.IsNullOrWhiteSpace(txtStoredAtBaseId.Text) ? null : int.Parse(txtStoredAtBaseId.Text);
 
-                    _equipmentRepository.Update(eq);
+                    // Use service to update equipment
+                    var result = _equipmentService.UpdateEquipment(eq);
+                    if (!result.success)
+                    {
+                        MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                     equipmentBinding.ResetBindings();
                 }
             }
@@ -213,8 +223,15 @@ namespace VillainLairManager.Forms
         {
             if (dgvEquipment.CurrentRow?.DataBoundItem is Equipment eq)
             {
-                _equipmentRepository.Delete(eq.EquipmentId);
-                equipmentBinding.Remove(eq);
+                var result = _equipmentService.DeleteEquipment(eq.EquipmentId);
+                if (result.success)
+                {
+                    equipmentBinding.Remove(eq);
+                }
+                else
+                {
+                    MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
@@ -222,9 +239,16 @@ namespace VillainLairManager.Forms
         {
             if (dgvEquipment.CurrentRow?.DataBoundItem is Equipment eq)
             {
-                eq.PerformMaintenance();
-                eq.LastMaintenanceDate = DateTime.Now;
-                _equipmentRepository.Update(eq);
+                // Use service to perform maintenance (business logic in service)
+                var result = _equipmentService.PerformMaintenance(eq);
+                if (result.success)
+                {
+                    MessageBox.Show(result.message, "Maintenance Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 equipmentBinding.ResetBindings();
             }
         }
@@ -236,8 +260,16 @@ namespace VillainLairManager.Forms
                 var schemeIdStr = Prompt("Assign to Scheme (ID):", eq.AssignedToSchemeId?.ToString() ?? "");
                 if (int.TryParse(schemeIdStr, out int schemeId))
                 {
-                    eq.AssignedToSchemeId = schemeId;
-                    _equipmentRepository.Update(eq);
+                    // Use service to assign equipment (business logic in service)
+                    var result = _equipmentService.AssignToScheme(eq, schemeId);
+                    if (result.success)
+                    {
+                        MessageBox.Show(result.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                     equipmentBinding.ResetBindings();
                 }
             }

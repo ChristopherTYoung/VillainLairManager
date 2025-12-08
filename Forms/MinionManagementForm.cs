@@ -4,11 +4,13 @@ using System.Windows.Forms;
 using VillainLairManager.Models;
 using VillainLairManager.Utils;
 using VillainLairManager.Repositories;
+using VillainLairManager.Services;
 
 namespace VillainLairManager.Forms
 {
     /// <summary>
-    /// Minion management form with dependency injection
+    /// Minion management form with dependency injection and service layer
+    /// Business logic extracted to MinionService
     /// </summary>
     public partial class MinionManagementForm : Form
     {
@@ -18,13 +20,13 @@ namespace VillainLairManager.Forms
         private Button btnAdd, btnUpdate, btnDelete, btnRefresh;
         private Label lblName, lblSkillLevel, lblSpecialty, lblSalary, lblLoyalty, lblMood, lblBase, lblScheme;
         private ConfigManager _config = ConfigManager.Instance;
-        private readonly IMinionRepository _minionRepository;
+        private readonly IMinionService _minionService;
         private readonly ISecretBaseRepository _baseRepository;
         private readonly IEvilSchemeRepository _schemeRepository;
 
-        public MinionManagementForm(IMinionRepository minionRepository, ISecretBaseRepository baseRepository, IEvilSchemeRepository schemeRepository)
+        public MinionManagementForm(IMinionService minionService, ISecretBaseRepository baseRepository, IEvilSchemeRepository schemeRepository)
         {
-            _minionRepository = minionRepository ?? throw new ArgumentNullException(nameof(minionRepository));
+            _minionService = minionService ?? throw new ArgumentNullException(nameof(minionService));
             _baseRepository = baseRepository ?? throw new ArgumentNullException(nameof(baseRepository));
             _schemeRepository = schemeRepository ?? throw new ArgumentNullException(nameof(schemeRepository));
             
@@ -35,114 +37,51 @@ namespace VillainLairManager.Forms
 
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            // Validation logic directly in event handler (anti-pattern)
-            if (string.IsNullOrEmpty(txtName.Text))
-            {
-                MessageBox.Show("Name is required!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Validate specialty using ValidationHelper and configuration
-            string specialty = cboSpecialty.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(specialty) || !ValidationHelper.IsValidSpecialty(specialty))
-            {
-                MessageBox.Show($"Invalid specialty! Must be one of: {string.Join(", ", _config.ValidSpecialties)}", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Parse and validate skill level using ValidationHelper
+            // Parse input values
             if (!int.TryParse(txtSkillLevel.Text, out int skillLevel))
             {
                 MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (!ValidationHelper.IsValidSkillLevel(skillLevel))
-            {
-                MessageBox.Show($"Skill level must be between {_config.SkillLevelRange.Min} and {_config.SkillLevelRange.Max}!", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Parse and validate salary
             if (!decimal.TryParse(txtSalary.Text, out decimal salary))
             {
                 MessageBox.Show("Salary must be a valid number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (salary < 0)
-            {
-                MessageBox.Show("Salary cannot be negative!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Parse loyalty using configuration default
             if (!int.TryParse(txtLoyalty.Text, out int loyalty))
             {
                 loyalty = _config.DefaultLoyaltyScore;
             }
 
-            if (!ValidationHelper.IsValidLoyalty(loyalty))
-            {
-                MessageBox.Show($"Loyalty must be between {_config.LoyaltyScoreRange.Min} and {_config.LoyaltyScoreRange.Max}!", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Business logic for mood determination using configuration thresholds
-            string mood = cboMood.SelectedItem?.ToString() ?? _config.DefaultMoodStatus;
-            if (string.IsNullOrEmpty(mood))
-            {
-                if (loyalty > _config.HighLoyaltyThreshold)
-                    mood = _config.MoodHappy;
-                else if (loyalty < _config.LowLoyaltyThreshold)
-                    mood = _config.MoodBetrayal;
-                else
-                    mood = _config.MoodGrumpy;
-            }
-
             // Get base and scheme assignments
-            int? baseId = null;
-            int? schemeId = null;
+            int? baseId = ParseComboBoxId(cboBase);
+            int? schemeId = ParseComboBoxId(cboScheme);
+            string mood = cboMood.SelectedItem?.ToString();
+            string specialty = cboSpecialty.SelectedItem?.ToString();
 
-            if (cboBase.SelectedItem != null && cboBase.SelectedIndex > 0)
-            {
-                var baseItem = cboBase.SelectedItem.ToString();
-                baseId = int.Parse(baseItem.Split(':')[0].Trim());
-            }
+            // Use service to create minion (all business logic in service)
+            var result = _minionService.CreateMinion(
+                txtName.Text,
+                specialty,
+                skillLevel,
+                salary,
+                loyalty,
+                baseId,
+                schemeId,
+                mood);
 
-            if (cboScheme.SelectedItem != null && cboScheme.SelectedIndex > 0)
+            // Display result
+            if (result.success)
             {
-                var schemeItem = cboScheme.SelectedItem.ToString();
-                schemeId = int.Parse(schemeItem.Split(':')[0].Trim());
-            }
-
-            // Direct database call from UI (anti-pattern)
-            var minion = new Minion
-            {
-                Name = txtName.Text,
-                SkillLevel = skillLevel,
-                Specialty = specialty,
-                LoyaltyScore = loyalty,
-                SalaryDemand = salary,
-                CurrentBaseId = baseId,
-                CurrentSchemeId = schemeId,
-                MoodStatus = mood,
-                LastMoodUpdate = DateTime.Now
-            };
-
-            try
-            {
-                _minionRepository.Insert(minion);
-                MessageBox.Show("Minion added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(result.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshGrid();
                 ClearFields();
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show($"Error adding minion: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -155,101 +94,55 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Validation logic (duplicated from btnAdd_Click - anti-pattern)
-            if (string.IsNullOrEmpty(txtName.Text))
+            // Parse input values
+            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel))
             {
-                MessageBox.Show("Name is required!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Validate specialty using ValidationHelper
-            string specialty = cboSpecialty.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(specialty) || !ValidationHelper.IsValidSpecialty(specialty))
+            if (!decimal.TryParse(txtSalary.Text, out decimal salary))
             {
-                MessageBox.Show($"Invalid specialty! Must be one of: {string.Join(", ", _config.ValidSpecialties)}", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Salary must be a valid number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Parse skill level with ValidationHelper
-            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel) || !ValidationHelper.IsValidSkillLevel(skillLevel))
+            if (!int.TryParse(txtLoyalty.Text, out int loyalty))
             {
-                MessageBox.Show($"Skill level must be between {_config.SkillLevelRange.Min} and {_config.SkillLevelRange.Max}!", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Parse salary with inline validation (duplicated)
-            if (!decimal.TryParse(txtSalary.Text, out decimal salary) || salary < 0)
-            {
-                MessageBox.Show("Salary must be a positive number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Parse loyalty with ValidationHelper
-            if (!int.TryParse(txtLoyalty.Text, out int loyalty) || !ValidationHelper.IsValidLoyalty(loyalty))
-            {
-                MessageBox.Show($"Loyalty must be between {_config.LoyaltyScoreRange.Min} and {_config.LoyaltyScoreRange.Max}!", 
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Business logic for mood using configuration
-            string mood = cboMood.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(mood))
-            {
-                if (loyalty > _config.HighLoyaltyThreshold)
-                    mood = _config.MoodHappy;
-                else if (loyalty < _config.LowLoyaltyThreshold)
-                    mood = _config.MoodBetrayal;
-                else
-                    mood = _config.MoodGrumpy;
+                loyalty = _config.DefaultLoyaltyScore;
             }
 
             // Get base and scheme assignments
-            int? baseId = null;
-            int? schemeId = null;
-
-            if (cboBase.SelectedItem != null && cboBase.SelectedIndex > 0)
-            {
-                var baseItem = cboBase.SelectedItem.ToString();
-                baseId = int.Parse(baseItem.Split(':')[0].Trim());
-            }
-
-            if (cboScheme.SelectedItem != null && cboScheme.SelectedIndex > 0)
-            {
-                var schemeItem = cboScheme.SelectedItem.ToString();
-                schemeId = int.Parse(schemeItem.Split(':')[0].Trim());
-            }
+            int? baseId = ParseComboBoxId(cboBase);
+            int? schemeId = ParseComboBoxId(cboScheme);
+            string mood = cboMood.SelectedItem?.ToString();
+            string specialty = cboSpecialty.SelectedItem?.ToString();
 
             // Get minion ID from selected row
             int minionId = (int)dgvMinions.SelectedRows[0].Cells["MinionId"].Value;
 
-            // Direct database call from UI (anti-pattern)
-            var minion = new Minion
-            {
-                MinionId = minionId,
-                Name = txtName.Text,
-                SkillLevel = skillLevel,
-                Specialty = specialty,
-                LoyaltyScore = loyalty,
-                SalaryDemand = salary,
-                CurrentBaseId = baseId,
-                CurrentSchemeId = schemeId,
-                MoodStatus = mood,
-                LastMoodUpdate = DateTime.Now
-            };
+            // Use service to update minion (all business logic in service)
+            var result = _minionService.UpdateMinion(
+                minionId,
+                txtName.Text,
+                specialty,
+                skillLevel,
+                salary,
+                loyalty,
+                baseId,
+                schemeId,
+                mood);
 
-            try
+            // Display result
+            if (result.success)
             {
-                _minionRepository.Update(minion);
-                MessageBox.Show("Minion updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(result.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshGrid();
                 ClearFields();
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show($"Error updating minion: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -275,18 +168,36 @@ namespace VillainLairManager.Forms
 
             if (result == DialogResult.Yes)
             {
-                try
+                // Use service to delete minion
+                var deleteResult = _minionService.DeleteMinion(minionId);
+
+                if (deleteResult.success)
                 {
-                    _minionRepository.Delete(minionId);
-                    MessageBox.Show("Minion deleted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(deleteResult.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     RefreshGrid();
                     ClearFields();
                 }
-                catch (Exception ex)
+                else
                 {
-                    MessageBox.Show($"Error deleting minion: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(deleteResult.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+        }
+
+        /// <summary>
+        /// Helper method to parse ID from combo box items formatted as "ID: Name"
+        /// </summary>
+        private int? ParseComboBoxId(ComboBox comboBox)
+        {
+            if (comboBox.SelectedItem != null && comboBox.SelectedIndex > 0)
+            {
+                var item = comboBox.SelectedItem.ToString();
+                if (int.TryParse(item.Split(':')[0].Trim(), out int id))
+                {
+                    return id;
+                }
+            }
+            return null;
         }
 
         private void btnRefresh_Click(object sender, EventArgs e)
@@ -299,7 +210,7 @@ namespace VillainLairManager.Forms
         private void RefreshGrid()
         {
             dgvMinions.DataSource = null;
-            dgvMinions.DataSource = _minionRepository.GetAll();
+            dgvMinions.DataSource = _minionService.GetAllMinions();
 
             // Format grid columns
             if (dgvMinions.Columns.Count > 0)
