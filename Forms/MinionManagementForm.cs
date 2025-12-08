@@ -37,29 +37,10 @@ namespace VillainLairManager.Forms
 
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            // Parse input values
-            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel))
-            {
-                MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            // Parse and validate input
+            if (!TryParseInputValues(out int skillLevel, out decimal salary, out int loyalty, 
+                out int? baseId, out int? schemeId, out string mood, out string specialty))
                 return;
-            }
-
-            if (!decimal.TryParse(txtSalary.Text, out decimal salary))
-            {
-                MessageBox.Show("Salary must be a valid number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (!int.TryParse(txtLoyalty.Text, out int loyalty))
-            {
-                loyalty = _config.DefaultLoyaltyScore;
-            }
-
-            // Get base and scheme assignments
-            int? baseId = ParseComboBoxId(cboBase);
-            int? schemeId = ParseComboBoxId(cboScheme);
-            string mood = cboMood.SelectedItem?.ToString();
-            string specialty = cboSpecialty.SelectedItem?.ToString();
 
             // Use service to create minion (all business logic in service)
             var result = _minionService.CreateMinion(
@@ -72,17 +53,8 @@ namespace VillainLairManager.Forms
                 schemeId,
                 mood);
 
-            // Display result
-            if (result.success)
-            {
-                MessageBox.Show(result.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                RefreshGrid();
-                ClearFields();
-            }
-            else
-            {
-                MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+            // Display result and refresh
+            HandleOperationResult(result.success, result.message);
         }
 
         private void btnUpdate_Click(object sender, EventArgs e)
@@ -94,29 +66,10 @@ namespace VillainLairManager.Forms
                 return;
             }
 
-            // Parse input values
-            if (!int.TryParse(txtSkillLevel.Text, out int skillLevel))
-            {
-                MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            // Parse and validate input
+            if (!TryParseInputValues(out int skillLevel, out decimal salary, out int loyalty, 
+                out int? baseId, out int? schemeId, out string mood, out string specialty))
                 return;
-            }
-
-            if (!decimal.TryParse(txtSalary.Text, out decimal salary))
-            {
-                MessageBox.Show("Salary must be a valid number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (!int.TryParse(txtLoyalty.Text, out int loyalty))
-            {
-                loyalty = _config.DefaultLoyaltyScore;
-            }
-
-            // Get base and scheme assignments
-            int? baseId = ParseComboBoxId(cboBase);
-            int? schemeId = ParseComboBoxId(cboScheme);
-            string mood = cboMood.SelectedItem?.ToString();
-            string specialty = cboSpecialty.SelectedItem?.ToString();
 
             // Get minion ID from selected row
             int minionId = (int)dgvMinions.SelectedRows[0].Cells["MinionId"].Value;
@@ -133,17 +86,8 @@ namespace VillainLairManager.Forms
                 schemeId,
                 mood);
 
-            // Display result
-            if (result.success)
-            {
-                MessageBox.Show(result.message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                RefreshGrid();
-                ClearFields();
-            }
-            else
-            {
-                MessageBox.Show(result.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+            // Display result and refresh
+            HandleOperationResult(result.success, result.message);
         }
 
         private void btnDelete_Click(object sender, EventArgs e)
@@ -198,6 +142,66 @@ namespace VillainLairManager.Forms
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// Consolidated input parsing and validation
+        /// </summary>
+        private bool TryParseInputValues(out int skillLevel, out decimal salary, out int loyalty,
+            out int? baseId, out int? schemeId, out string mood, out string specialty)
+        {
+            skillLevel = 0;
+            salary = 0;
+            loyalty = _config.DefaultLoyaltyScore;
+            baseId = null;
+            schemeId = null;
+            mood = null;
+            specialty = null;
+
+            // Parse skill level
+            if (!int.TryParse(txtSkillLevel.Text, out skillLevel))
+            {
+                MessageBox.Show("Skill level must be a number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            // Parse salary
+            if (!decimal.TryParse(txtSalary.Text, out salary))
+            {
+                MessageBox.Show("Salary must be a valid number!", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            // Parse loyalty (optional - use default if not provided)
+            if (!int.TryParse(txtLoyalty.Text, out loyalty))
+            {
+                loyalty = _config.DefaultLoyaltyScore;
+            }
+
+            // Get base and scheme assignments
+            baseId = ParseComboBoxId(cboBase);
+            schemeId = ParseComboBoxId(cboScheme);
+            mood = cboMood.SelectedItem?.ToString();
+            specialty = cboSpecialty.SelectedItem?.ToString();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Handles operation result display and UI refresh
+        /// </summary>
+        private void HandleOperationResult(bool success, string message)
+        {
+            if (success)
+            {
+                MessageBox.Show(message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshGrid();
+                ClearFields();
+            }
+            else
+            {
+                MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void btnRefresh_Click(object sender, EventArgs e)
@@ -280,40 +284,31 @@ namespace VillainLairManager.Forms
 
                 // Set base combo box
                 var baseId = row.Cells["CurrentBaseId"].Value;
-                if (baseId != null && baseId != DBNull.Value)
-                {
-                    for (int i = 0; i < cboBase.Items.Count; i++)
-                    {
-                        if (cboBase.Items[i].ToString().StartsWith(baseId.ToString() + ":"))
-                        {
-                            cboBase.SelectedIndex = i;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    cboBase.SelectedIndex = 0;
-                }
+                SetComboBoxById(cboBase, baseId);
 
                 // Set scheme combo box
                 var schemeId = row.Cells["CurrentSchemeId"].Value;
-                if (schemeId != null && schemeId != DBNull.Value)
+                SetComboBoxById(cboScheme, schemeId);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to set combo box selection by ID value
+        /// </summary>
+        private void SetComboBoxById(ComboBox comboBox, object idValue)
+        {
+            if (idValue != null && idValue != DBNull.Value)
+            {
+                for (int i = 0; i < comboBox.Items.Count; i++)
                 {
-                    for (int i = 0; i < cboScheme.Items.Count; i++)
+                    if (comboBox.Items[i].ToString().StartsWith(idValue.ToString() + ":"))
                     {
-                        if (cboScheme.Items[i].ToString().StartsWith(schemeId.ToString() + ":"))
-                        {
-                            cboScheme.SelectedIndex = i;
-                            break;
-                        }
+                        comboBox.SelectedIndex = i;
+                        return;
                     }
                 }
-                else
-                {
-                    cboScheme.SelectedIndex = 0;
-                }
             }
+            comboBox.SelectedIndex = 0; // Select "(None)" if not found
         }
 
         private void ClearFields()

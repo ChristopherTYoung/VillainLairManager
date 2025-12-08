@@ -19,52 +19,6 @@ namespace VillainLairManager.Models
         public string MoodStatus { get; set; }
         public DateTime LastMoodUpdate { get; set; }
 
-        // Business logic mixed into model (anti-pattern)
-        public void UpdateMood()
-        {
-            var config = ConfigManager.Instance;
-            // Business rules embedded in model
-            if (this.LoyaltyScore > config.HighLoyaltyThreshold)
-                this.MoodStatus = config.MoodHappy;
-            else if (this.LoyaltyScore < config.LowLoyaltyThreshold)
-                this.MoodStatus = config.MoodBetrayal;
-            else
-                this.MoodStatus = config.MoodGrumpy;
-
-            this.LastMoodUpdate = DateTime.Now;
-
-            // Directly accesses database (anti-pattern)
-            DatabaseHelper.UpdateMinion(this);
-        }
-
-        // Static utility method in model (anti-pattern)
-        public static bool IsValidSpecialty(string specialty)
-        {
-            // Use ValidationHelper instead of duplicating logic
-            return ValidationHelper.IsValidSpecialty(specialty);
-        }
-
-        // Business logic for loyalty calculation
-        public void UpdateLoyalty(decimal actualSalaryPaid)
-        {
-            var config = ConfigManager.Instance;
-            if (actualSalaryPaid >= this.SalaryDemand)
-            {
-                this.LoyaltyScore += config.LoyaltyGrowthRate;
-            }
-            else
-            {
-                this.LoyaltyScore -= config.LoyaltyDecayRate;
-            }
-
-            // Clamp to valid range
-            if (this.LoyaltyScore > config.LoyaltyScoreRange.Max) this.LoyaltyScore = config.LoyaltyScoreRange.Max;
-            if (this.LoyaltyScore < config.LoyaltyScoreRange.Min) this.LoyaltyScore = config.LoyaltyScoreRange.Min;
-
-            // Update mood based on new loyalty
-            UpdateMood();
-        }
-
         // ToString for ComboBox display
         public override string ToString()
         {
