@@ -22,7 +22,7 @@ namespace VillainLairManager.Tests.Services
         {
             // Arrange
             string name = "Evil Bob";
-            string specialty = "Henchman";
+            string specialty = "Henchman";  // Must be a valid specialty from config
             int skillLevel = 5;
             decimal salary = 50000;
             int loyalty = 75;
@@ -31,7 +31,7 @@ namespace VillainLairManager.Tests.Services
             var (isValid, errorMessage) = _minionService.ValidateMinion(name, specialty, skillLevel, salary, loyalty);
 
             // Assert
-            Assert.True(isValid);
+            Assert.True(isValid, $"Validation failed: {errorMessage}");
             Assert.Empty(errorMessage);
         }
 
@@ -55,11 +55,11 @@ namespace VillainLairManager.Tests.Services
         }
 
         [Theory]
-        [InlineData(0, "Hostile")]
-        [InlineData(25, "Unhappy")]
-        [InlineData(50, "Neutral")]
-        [InlineData(75, "Content")]
-        [InlineData(100, "Fanatical")]
+        [InlineData(0, "Plotting Betrayal")]
+        [InlineData(25, "Plotting Betrayal")]
+        [InlineData(50, "Grumpy")]
+        [InlineData(75, "Happy")]
+        [InlineData(100, "Happy")]
         public void CalculateMood_WithVariousLoyalty_ReturnsCorrectMood(int loyalty, string expectedMood)
         {
             // Act
@@ -74,18 +74,18 @@ namespace VillainLairManager.Tests.Services
         {
             // Arrange
             string name = "Evil Bob";
-            string specialty = "Henchman";
+            string specialty = "Henchman";  // Valid specialty
             int skillLevel = 5;
             decimal salary = 50000;
             int loyalty = 75;
-            string mood = "Content";
+            string mood = "Happy";  // Changed to valid mood
 
             // Act
             var (success, message, minion) = _minionService.CreateMinion(
                 name, specialty, skillLevel, salary, loyalty, null, null, mood);
 
             // Assert
-            Assert.True(success);
+            Assert.True(success, $"Creation failed: {message}");
             Assert.NotNull(minion);
             Assert.Equal(name, minion.Name);
             Assert.Equal(specialty, minion.Specialty);

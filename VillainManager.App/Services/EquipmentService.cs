@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using VillainLairManager.Models;
 using VillainLairManager.Repositories;
 using VillainLairManager.Utils;
@@ -63,6 +64,20 @@ namespace VillainLairManager.Services
         }
 
         /// <summary>
+        /// Performs maintenance on equipment by ID, restores condition, and calculates cost
+        /// Overload that takes equipment ID for convenience
+        /// </summary>
+        public decimal PerformMaintenance(int equipmentId)
+        {
+            var equipment = _equipmentRepository.GetById(equipmentId);
+            if (equipment == null)
+                throw new ArgumentException($"Equipment with ID {equipmentId} not found");
+
+            var result = PerformMaintenance(equipment);
+            return result.cost;
+        }
+
+        /// <summary>
         /// Degrades equipment condition based on usage in active schemes
         /// Business logic extracted from Equipment.DegradeCondition()
         /// </summary>
@@ -73,14 +88,30 @@ namespace VillainLairManager.Services
 
             // Only degrade if assigned to a scheme
             if (!equipment.AssignedToSchemeId.HasValue)
+            {
+                // Minimal idle degradation (1 point)
+                equipment.Condition = Math.Max(0, equipment.Condition - 1);
+                _equipmentRepository.Update(equipment);
                 return;
+            }
 
-            // Check if scheme is active
+            // Check if scheme exists and is active
             var scheme = _schemeRepository.GetById(equipment.AssignedToSchemeId.Value);
-            if (scheme == null || scheme.Status != _config.StatusActive)
+            if (scheme == null)
+            {
+                // No degradation if scheme doesn't exist
                 return;
+            }
+            
+            if (scheme.Status != _config.StatusActive)
+            {
+                // Minimal degradation (1 point) for non-active schemes
+                equipment.Condition = Math.Max(0, equipment.Condition - 1);
+                _equipmentRepository.Update(equipment);
+                return;
+            }
 
-            // Calculate degradation based on time since last maintenance
+            // Calculate degradation based on time since last maintenance for active schemes
             int monthsSinceMaintenance = 1; // Simplified calculation
             if (equipment.LastMaintenanceDate.HasValue)
             {
@@ -96,6 +127,19 @@ namespace VillainLairManager.Services
                 equipment.Condition = 0;
 
             _equipmentRepository.Update(equipment);
+        }
+
+        /// <summary>
+        /// Degrades equipment condition by ID
+        /// Overload that takes equipment ID for convenience
+        /// </summary>
+        public void DegradeCondition(int equipmentId)
+        {
+            var equipment = _equipmentRepository.GetById(equipmentId);
+            if (equipment == null)
+                throw new ArgumentException($"Equipment with ID {equipmentId} not found");
+
+            DegradeCondition(equipment);
         }
 
         /// <summary>
@@ -182,6 +226,16 @@ namespace VillainLairManager.Services
         public List<Equipment> GetAllEquipment()
         {
             return _equipmentRepository.GetAll();
+        }
+
+        /// <summary>
+        /// Gets all operational equipment (condition >= 50)
+        /// </summary>
+        public List<Equipment> GetOperationalEquipment()
+        {
+            return _equipmentRepository.GetAll()
+                .Where(e => IsOperational(e))
+                .ToList();
         }
 
         /// <summary>

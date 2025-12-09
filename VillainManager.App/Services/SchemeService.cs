@@ -62,7 +62,8 @@ namespace VillainLairManager.Services
 
             // Calculate penalties
             int budgetPenalty = scheme.CurrentSpending > scheme.Budget ? -20 : 0;
-            int resourcePenalty = (totalMinions >= 2 && matchingMinions >= 1) ? 0 : -15;
+            // Resource penalty only applies if we don't have enough minions (< 2) AND no matching specialists
+            int resourcePenalty = (totalMinions >= 2 || matchingMinions >= 1) ? 0 : -15;
             int timelinePenalty = DateTime.Now > scheme.TargetCompletionDate ? -25 : 0;
 
             // Calculate final success

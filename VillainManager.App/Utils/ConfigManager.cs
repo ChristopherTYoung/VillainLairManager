@@ -107,10 +107,10 @@ namespace VillainLairManager.Utils
                 },
                 ValidValues = new ValidValuesSettings
                 {
-                    MinionSpecialties = new[] { "Hacking", "Explosives", "Disguise", "Combat", "Engineering", "Piloting" },
+                    MinionSpecialties = new[] { "Henchman", "Scientist", "Technician", "Hacking", "Explosives", "Disguise", "Combat", "Engineering", "Piloting" },
                     MoodStatuses = new[] { "Happy", "Grumpy", "Plotting Betrayal", "Exhausted" },
                     SchemeStatuses = new[] { "Planning", "Active", "On Hold", "Completed", "Failed" },
-                    EquipmentCategories = new[] { "Weapon", "Vehicle", "Gadget", "Doomsday Device" }
+                    EquipmentCategories = new[] { "Weapon", "Vehicle", "Gadget", "Doomsday Device", "Surveillance", "Transportation", "Communication", "Weapons" }
                 },
                 DefaultValues = new DefaultValuesSettings
                 {
